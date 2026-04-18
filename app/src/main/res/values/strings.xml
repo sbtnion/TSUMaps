@@ -1,16 +1,19 @@
 <resources>
     <string name="app_name">TSU Maps</string>
 
+    <!-- Нижняя панель -->
     <string name="mode_navigation">Путь</string>
     <string name="mode_clustering">Зоны</string>
     <string name="mode_tour">Тур</string>
     <string name="mode_decision_tree">Обед</string>
 
-    <string name="find_lunch">Подобрать место</string>
-    <string name="decision_settings_title">Настройка обеда</string>
+    <!-- Кнопки и заголовки -->
+    <string name="decision_settings_title">Параметры обеда</string>
+    <string name="import_csv">Импортировать CSV</string>
+    <string name="csv_data_label">База знаний (CSV)</string>
+    <string name="find_lunch">Где пообедать?</string>
 
+    <!-- Оверлей результата -->
     <string name="recommendation_label">Место: %1$s</string>
     <string name="path_label">Путь: %1$s</string>
-
-    <string name="csv_data_label">Обучающие данные CSV</string>
 </resources>

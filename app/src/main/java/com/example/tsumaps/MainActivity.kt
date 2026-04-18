@@ -11,7 +11,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
@@ -37,9 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.tsumaps.ui.theme.TSUMapsTheme
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlin.random.Random
 import com.example.tsumaps.MapRenderer.drawPathLine
 import com.example.tsumaps.MapRenderer.drawVoronoiZones
@@ -74,8 +70,6 @@ class MainActivity : ComponentActivity() {
 fun TSUMapsApp() {
     val context = LocalContext.current
     val mapRatio = 5.4f
-    val coroutineScope = rememberCoroutineScope()
-    var isProcessing by remember { mutableStateOf(false) }
 
     val clusterManager = remember { ClusterManager() }
     val treeProcessor = remember { DecisionTreeProcessor() }
@@ -121,13 +115,7 @@ fun TSUMapsApp() {
             MapActionButtons(
                 mode = currentMode,
                 tourPointsCount = tourPoints.size,
-                onRunACO = {
-                    coroutineScope.launch {
-                        isProcessing = true
-                        tourPathPoints = withContext(Dispatchers.Default) { pathFinder.solveTSPWithAntColony(tourPoints) }
-                        isProcessing = false
-                    }
-                },
+                onRunACO = { tourPathPoints = pathFinder.solveTSPWithAntColony(tourPoints) },
                 onOpenTree = { showDecisionDialog = true },
                 onClearAll = {
                     poiList.clear(); clusterColors.clear(); tourPoints.clear()
@@ -145,18 +133,16 @@ fun TSUMapsApp() {
                             val cx = size.width / 2f; val cy = size.height / 2f
                             val gridX = (((tapOffset.x - cx - viewOffset.x) / viewScale + cx) / mapRatio).toInt()
                             val gridY = (((tapOffset.y - cy - viewOffset.y) / viewScale + cy) / mapRatio).toInt()
+
                             if (gridY !in gridMatrix.indices || gridX !in gridMatrix.indices || gridMatrix[gridY][gridX] == 1) return@detectTapGestures
+
                             when (currentMode) {
                                 MapMode.NAVIGATION -> {
                                     if (startPoint == null || (startPoint != null && endPoint != null)) {
                                         startPoint = gridY to gridX; endPoint = null; pathPoints = null
                                     } else {
                                         endPoint = gridY to gridX
-                                        coroutineScope.launch {
-                                            isProcessing = true
-                                            pathPoints = withContext(Dispatchers.Default) { pathFinder.findPathAStar(startPoint!!, endPoint!!) }
-                                            isProcessing = false
-                                        }
+                                        pathPoints = pathFinder.findPathAStar(startPoint!!, endPoint!!)
                                     }
                                 }
                                 MapMode.CLUSTERING -> {
@@ -183,6 +169,7 @@ fun TSUMapsApp() {
                     }
                     pathPoints?.let { drawPathLine(it, mapRatio, Color.Red, 4f / viewScale) }
                     tourPathPoints?.let { drawPathLine(it, mapRatio, Color.Blue, 6f / viewScale) }
+
                     val dotRadius = 10f / viewScale
                     poiList.forEach { drawCircle(clusterColors[it.clusterIndex] ?: Color.Gray, dotRadius, Offset(it.x * mapRatio, it.y * mapRatio)) }
                     tourPoints.forEach { drawCircle(Color.Black, dotRadius, Offset(it.second * mapRatio, it.first * mapRatio)) }
@@ -190,9 +177,7 @@ fun TSUMapsApp() {
                     endPoint?.let { drawCircle(Color.Blue, 8f / viewScale, Offset(it.second * mapRatio, it.first * mapRatio)) }
                 }
             }
-            if (isProcessing) {
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            }
+
             decisionResult?.let { (place, path) ->
                 Card(modifier = Modifier.align(Alignment.TopCenter).padding(16.dp)) {
                     Column(Modifier.padding(12.dp)) {
@@ -223,10 +208,8 @@ fun DecisionTreeMenu(processor: DecisionTreeProcessor, onDismiss: () -> Unit, on
     val initialCsv = remember { BitmapUtils.readAssetFile(context, "default_data.csv") }
     var csvText by remember { mutableStateOf(initialCsv) }
 
-    val filePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        uri?.let {
-            csvText = context.contentResolver.openInputStream(it)?.bufferedReader()?.use { r -> r.readText() } ?: csvText
-        }
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { csvText = context.contentResolver.openInputStream(it)?.bufferedReader()?.use { r -> r.readText() } ?: csvText }
     }
 
     val options = mapOf("location" to listOf("main_building", "second_building", "bus_stop", "campus_center"), "budget" to listOf("low", "medium", "high"), "time_available" to listOf("very_short", "short", "medium"), "food_type" to listOf("coffee", "pancakes", "full_meal", "snack"), "queue_tolerance" to listOf("low", "medium", "high"), "weather" to listOf("good", "bad"))
@@ -234,21 +217,19 @@ fun DecisionTreeMenu(processor: DecisionTreeProcessor, onDismiss: () -> Unit, on
 
     Dialog(onDismissRequest = onDismiss) {
         Card(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f), shape = RoundedCornerShape(16.dp)) {
-            Column(Modifier.padding(1.dp)) {
+            Column(Modifier.padding(2.dp)) {
                 Text(stringResource(R.string.decision_settings_title), style = MaterialTheme.typography.titleLarge)
                 LazyColumn(Modifier.weight(1f)) {
                     options.forEach { (attr, opts) ->
                         item {
                             Text(attr, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(2.dp)) {
                                 opts.forEach { opt -> FilterChip(selection[attr] == opt, { selection[attr] = opt }, { Text(opt, fontSize = 7.sp) }) }
                             }
                         }
                     }
                     item {
-                        Button(onClick = { filePickerLauncher.launch("text/*") }, modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
-                            Text("Импорт CSV")
-                        }
+                        Button(onClick = { filePicker.launch("text/*") }, Modifier.fillMaxWidth().padding(top = 16.dp)) { Text(stringResource(R.string.import_csv)) }
                         OutlinedTextField(value = csvText, onValueChange = { csvText = it }, label = { Text(stringResource(R.string.csv_data_label)) }, modifier = Modifier.fillMaxWidth().height(120.dp).padding(top = 8.dp), textStyle = androidx.compose.ui.text.TextStyle(fontSize = 10.sp))
                     }
                 }
