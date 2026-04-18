@@ -70,6 +70,8 @@ class MainActivity : ComponentActivity() {
 fun TSUMapsApp() {
     val context = LocalContext.current
     val mapRatio = 5.4f
+    val coroutineScope = rememberCoroutineScope()
+    var isProcessing by remember { mutableStateOf(false) }
 
     val clusterManager = remember { ClusterManager() }
     val treeProcessor = remember { DecisionTreeProcessor() }
@@ -78,6 +80,7 @@ fun TSUMapsApp() {
         BitmapUtils.loadGridFromBitmap(BitmapFactory.decodeResource(context.resources, R.drawable.grid, options))
     }
     val pathFinder = remember(gridMatrix) { PathFinder(gridMatrix) }
+    val tourOptimizer = remember(pathFinder) { TourOptimizer(pathFinder) }
 
     var currentMode by remember { mutableStateOf(MapMode.NAVIGATION) }
     var startPoint by remember { mutableStateOf<Pair<Int, Int>?>(null) }
@@ -115,7 +118,7 @@ fun TSUMapsApp() {
             MapActionButtons(
                 mode = currentMode,
                 tourPointsCount = tourPoints.size,
-                onRunACO = { tourPathPoints = pathFinder.solveTSPWithAntColony(tourPoints) },
+                onRunACO = { tourPathPoints = tourOptimizer.solveTSPWithAntColony(tourPoints)  },
                 onOpenTree = { showDecisionDialog = true },
                 onClearAll = {
                     poiList.clear(); clusterColors.clear(); tourPoints.clear()

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">TSU Maps</string>
+    <string name="app_name" translatable="false">TSU Maps</string>
 
     <string name="mode_navigation">Путь</string>
     <string name="mode_clustering">Зоны</string>
